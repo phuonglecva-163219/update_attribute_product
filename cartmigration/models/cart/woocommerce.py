@@ -2258,25 +2258,29 @@ class LeCartWoocommerce(LeCartWordpress):
 		return False
 	def category_import(self, convert, category, categories_ext):
 		print("in category import")
+		category = self.construct_category()
+		for key, value in convert.items():
+			if key in category:
+				category[key] = value
 		if convert['parent']['id'] == 0:
 			if self.check_category_id_import(convert['id']):
 				return
-			slug = self.sanitize_title(convert['name'])
+			slug = self.sanitize_title(category['name'])
 			# self.log(convert, 'Convert Category')
 			term = {
-				"name": convert['name'],
-				"slug": convert['code'] if convert['code'] else slug,
+				"name": category['name'],
+				"slug": category['code'] if category['code'] else slug,
 				"term_group": 0,
 			}
 			term_query = self.create_insert_query_connector('terms', term)
 			term_id = self.import_data_connector(term_query, 'category')
 
-			products = convert['categories_ext']['data']['products_to_categories']
+			products = category['categories_ext']['data']['products_to_categories']
 			no_products = [product for product in products if  product['categories_id'] == convert['id']]
 			term_taxonomy_obj = {
 				"term_id": term_id,
 				"taxonomy": "product_cat",
-				"description": convert['description'],
+				"description": category['description'],
 				"parent": 0,
 				"count":len(no_products)
 			}
@@ -2284,18 +2288,19 @@ class LeCartWoocommerce(LeCartWordpress):
 			query = self.create_insert_query_connector('term_taxonomy', term_taxonomy_obj)
 			taxonomy_id = self.import_data_connector(query, 'category')
 
-			self.insert_map(self.TYPE_CATEGORY, convert['id'], term_id)
+			self.insert_map(self.TYPE_CATEGORY, category['id'], term_id)
 			return response_success(term_id)
 		else:
-			parent_id = self.import_category_parent(convert['parent'])
+
+			parent_id = self.import_category_parent(category['parent'])
 			if not parent_id:
 				return
-			self.insert_map(self.TYPE_CATEGORY, convert['parent']['id'], parent_id['data'])
-			slug = self.sanitize_title(convert['name'])
+			self.insert_map(self.TYPE_CATEGORY, category['parent']['id'], parent_id['data'])
+			slug = self.sanitize_title(category['name'])
 			self.log(convert, 'Convert Category')
 			term = {
-				"name": convert['name'],
-				"slug": convert['code'] if convert['code'] else slug,
+				"name": category['name'],
+				"slug": category['code'] if category['code'] else slug,
 				"term_group": 0,
 			}
 			term_query = self.create_insert_query_connector('terms', term)
@@ -2303,13 +2308,13 @@ class LeCartWoocommerce(LeCartWordpress):
 			term_taxonomy_obj = {
 				"term_id": term_id,
 				"taxonomy": "product_cat",
-				"description": convert['description'],
+				"description": category['description'],
 				"parent": parent_id['data'],
 				"count": 0
 			}
 			query = self.create_insert_query_connector('term_taxonomy', term_taxonomy_obj)
 			taxonomy_id = self.import_data_connector(query, 'category')
-			self.insert_map(self.TYPE_CATEGORY, convert['id'], term_id)
+			self.insert_map(self.TYPE_CATEGORY, category['id'], term_id)
 			return response_success(term_id)
 
 	def get_new_trid(self):
@@ -3138,8 +3143,15 @@ class LeCartWoocommerce(LeCartWordpress):
 			product_attributes = convert['attributes']
 
 			for product_attribute in product_attributes:
-				attr_name = product_attribute['attribute_name']
-				attr_code = product_attribute['attribute_code']
+				product_attrs = self.construct_product_attribute()
+				product_attrs['option_id'] = product_attribute['attribute_id']
+				product_attrs['option_code'] = product_attribute['attribute_code']
+				product_attrs['option_name'] = product_attribute['attribute_name']
+				product_attrs['option_value_id'] = product_attribute['value_id']
+				product_attrs['option_value_name'] = product_attribute['value']
+				product_attrs['option_value_code'] = self.sanitize_title(product_attribute['value'])
+				attr_name = product_attrs['option_name']
+				attr_code = product_attrs['option_code']
 				# import into wp_woocommerce_attribute_taxonomies table:
 
 				new_att_id = 0
@@ -3151,16 +3163,16 @@ class LeCartWoocommerce(LeCartWordpress):
 						'attribute_orderby': 'menu_order',
 						'attribute_public': 0
 					}), "woocommerce_attribute_taxonomies")
-					self.insert_map(self.TYPE_ATTR, product_attribute['attribute_id'], new_att_id)
+					self.insert_map(self.TYPE_ATTR, product_attrs['option_id'], new_att_id)
 				else:
-					new_att_id = self.get_map_field_by_src(self.TYPE_ATTR, product_attribute['attribute_id'])
+					new_att_id = self.get_map_field_by_src(self.TYPE_ATTR, product_attrs['option_id'])
 
 				# insert attribute into terms table
 				attribute_id = ''
 				if not self.get_map_field_by_src(self.TYPE_ATTR_VALUE, code_src = product_attribute['value']):
 					attribute_data = {
-						'name': product_attribute['value'],
-						'slug': self.sanitize_title(product_attribute['value']),
+						'name': product_attrs['option_value_name'],
+						'slug': product_attrs['option_value_code'],
 						'term_group': 0
 					}
 					attribute_id = self.import_data_connector(self.create_insert_query_connector("terms", attribute_data), "terms")
@@ -3611,12 +3623,16 @@ class LeCartWoocommerce(LeCartWordpress):
 		print(product_relations)
 
 	def product_import(self, convert, product, products_ext):
+		product = self.construct_product()
+		for key, value in convert.items():
+			if key in product:
+				product[key] = value
 		post = {
-			'post_content': convert['description'],
-			'post_title': convert['name'],
+			'post_content': product['description'],
+			'post_title': product['name'],
 			'post_status': 'publish',
-			'post_date': convert['created_at'],
-			'post_date_gmt': convert['created_at'],
+			'post_date': product['created_at'],
+			'post_date_gmt': product['created_at'],
 			'comment_status': 'open',
 			'ping_status': 'closed',
 			'post_name': self.sanitize_title(convert['name']),
@@ -3625,8 +3641,8 @@ class LeCartWoocommerce(LeCartWordpress):
 			'menu_order': 0,
 			'post_parent':0,
 			'post_author':1,
-			'post_modified': convert['updated_at'],
-			'post_modified_gmt': convert['updated_at'],
+			'post_modified': product['updated_at'],
+			'post_modified_gmt': product['updated_at'],
 		}
 
 		post_meta = {
@@ -3647,14 +3663,14 @@ class LeCartWoocommerce(LeCartWordpress):
 			'_wc_average_rating':'',
 			'_wc_review_count':'',
 			'_product_version':'4.9.2',
-			'_regular_price':convert['price'],
-			'_sale_price':convert['price'],
-			'_price':convert['price'],
-			'_sku':convert['qty'],
+			'_regular_price':product['price'],
+			'_sale_price':product['price'],
+			'_price':product['price'],
+			'_sku':product['qty'],
 			'_visibility':'visible',
 		}
 		query = self.create_insert_query_connector("posts",post)
-		post_id = self.import_data_connector(query, 'post', convert['id'])
+		post_id = self.import_data_connector(query, 'post', product['id'])
 
 		# import term_relation_ship
 		query = self.create_insert_query_connector("term_relationships", {
@@ -3676,28 +3692,31 @@ class LeCartWoocommerce(LeCartWordpress):
 
 		cate_image = ''
 		root_url = 'http://localhost/'
-		if convert['thumb_image']['url'] or convert['thumb_image']['path']:
-			image_process = self.process_image_before_import(convert['thumb_image']['url'], convert['thumb_image']['path'])
-			image_import_path = self.uploadImageConnector(image_process, self.add_prefix_path(self.make_woocommerce_image_path(image_process['path'], self.TYPE_MANUFACTURER), self._notice['target']['config']['image_manufacturer'].rstrip('/')))
-			if image_import_path:
-				product_image = self.remove_prefix_path(image_import_path, self._notice['target']['config']['image_product'])
-				image_details = self.get_sizes(image_process['url'])
-				thumbnail_id = self.wp_image(product_image, image_details)
+		try:
+			# print("ok")
+			if convert['thumb_image']['url'] or convert['thumb_image']['path']:
+				image_process = self.process_image_before_import(convert['thumb_image']['url'], convert['thumb_image']['path'])
+				image_import_path = self.uploadImageConnector(image_process, self.add_prefix_path(self.make_woocommerce_image_path(image_process['path'], self.TYPE_MANUFACTURER), self._notice['target']['config']['image_manufacturer'].rstrip('/')))
+				if image_import_path:
+					product_image = self.remove_prefix_path(image_import_path, self._notice['target']['config']['image_product'])
+					image_details = self.get_sizes(image_process['url'])
+					thumbnail_id = self.wp_image(product_image, image_details)
 
-			print(image_import_path)
-			# split_path = image_import_path.split('/')
-			# new_path = '/'.join(split_path[2:])
-			product_thum_meta = {
-				'_thumbnail_id':thumbnail_id
-			}
-			for key, value in product_thum_meta.items():
-				query = self.create_insert_query_connector("postmeta", {
-					'post_id': post_id,
-					'meta_key': key,
-					'meta_value': value
-				})
-				self.import_data_connector(query, 'postmeta')
-		self.insert_map(self.TYPE_PRODUCT, convert['id'], post_id)
+					print(image_import_path)
+					product_thum_meta = {
+						'_thumbnail_id': thumbnail_id
+					}
+					for key, value in product_thum_meta.items():
+						query = self.create_insert_query_connector("postmeta", {
+							'post_id': post_id,
+							'meta_key': key,
+							'meta_value': value
+						})
+						self.import_data_connector(query, 'postmeta')
+		except:
+			pass
+
+		self.insert_map(self.TYPE_PRODUCT, product['id'], post_id)
 
 
 
@@ -3714,8 +3733,8 @@ class LeCartWoocommerce(LeCartWordpress):
 			'sku':convert['sku'],
 			'virtual':'false',
 			'downloadable':'false',
-			'min_price':convert['price'],
-			'max_price':convert['price'],
+			'min_price':product['price'],
+			'max_price':product['price'],
 			'onsale':'true',
 			'stock_quantity':None,
 			'stock_status':'instock',
@@ -3727,7 +3746,7 @@ class LeCartWoocommerce(LeCartWordpress):
 		}
 		product_lookup_qr = self.create_insert_query_connector("wc_product_meta_lookup", product_lookup)
 		self.import_data_connector(product_lookup_qr, 'product_lookup')
-		self.insert_map(self.TYPE_PRODUCT, convert['id'], post_id)
+		self.insert_map(self.TYPE_PRODUCT, product['id'], post_id)
 
 		# import attribute
 
@@ -4024,6 +4043,21 @@ class LeCartWoocommerce(LeCartWordpress):
 			})
 			self.import_data_connector(qr, "usermeta")
 		self.insert_map(self.TYPE_CUSTOMER, convert['id'], customer['customers_id'], convert['code'])
+		# insert into table customer looklup
+		customer_lookup_data = {
+			'user_id':user_id,
+			'username':user['user_nicename'],
+			'first_name':user_meta['first_name'],
+			'last_name':user_meta['last_name'],
+			'email':user['user_email'],
+			'date_last_active':convert['updated_at'],
+			'date_registered':user['user_registered'],
+			'country':customers_ext['data']['countries'][0]['countries_name'],
+			'postcode':convert['postcode'],
+			'city':convert['address'][0]['city'],
+			'state':'',
+		}
+		self.import_data_connector(self.create_insert_query_connector("wc_customer_lookup", customer_lookup_data), "wc_customer_lookup")
 		return response_success(customer['customers_id'])
 
 	def after_customer_import(self, customer_id, convert, customer, customers_ext):
@@ -4446,19 +4480,22 @@ class LeCartWoocommerce(LeCartWordpress):
 		return sum
 
 	def order_import(self, convert, order, orders_ext):
-
+		order = self.construct_order()
+		for key, value in convert.items():
+			if key in order:
+				order[key] = value
 		order_post = {
 			'post_author':1,
-			'post_date':convert['created_at'] if convert['created_at']  else '2021-01-23 15:10:59',
-			'post_date_gmt':convert['created_at'] if convert['created_at'] else '2021-01-23 15:10:59',
+			'post_date':order['created_at'] if order['created_at']  else '2021-01-23 15:10:59',
+			'post_date_gmt':order['created_at'] if order['created_at'] else '2021-01-23 15:10:59',
 			'post_content':'',
 			'post_title':'',
 			'post_excerpt':'',
-			'post_status':'wc-completed' if convert['status'] == '1' else 'wc-pending',
+			'post_status':'wc-completed' if order['status'] == '1' else 'wc-pending',
 			'comment_status':'',
 			'ping_status':'',
 			'post_password':'',
-			'post_name':'Hello',
+			'post_name':'Order',
 			'to_ping':'',
 			'pinged':'',
 			'post_modified':get_current_time(),
@@ -4474,23 +4511,23 @@ class LeCartWoocommerce(LeCartWordpress):
 		qr = self.create_insert_query_connector("posts", order_post)
 		order_id = self.import_data_connector(qr, 'order_post')
 
-		billing_address = convert['billing_address']
-		shipping_address = convert['shipping_address']
+		billing_address = order['billing_address']
+		shipping_address = order['shipping_address']
 
 		order_meta = {
 			'_customer_user':'0',
-			'_order_currency':convert['currency'],
+			'_order_currency':order['currency'],
 			'_order_shipping_tax':'',
-			'_order_tax':convert['tax']['amount'],
-			'_order_total':self.get_total(convert),
+			'_order_tax':order['tax']['amount'],
+			'_order_total':self.get_total(order),
 			'_order_version':'',
 			'_prices_include_tax':'',
 			'_billing_address_index':'',
 			'_shipping_address_index':'',
-			'_cart_discount': convert['discount']['amount'],
+			'_cart_discount': order['discount']['amount'],
 			'_cart_discount_tax':'',
-			'_order_shipping': convert['shipping']['amount'],
-			'total_sales':convert['discount']['amount'],
+			'_order_shipping': order['shipping']['amount'],
+			'total_sales':order['discount']['amount'],
 			'_edit_last':'',
 			'_order_key':'',
 			'_created_via':'',
@@ -4525,7 +4562,7 @@ class LeCartWoocommerce(LeCartWordpress):
 			self.import_data_connector(qr, 'order_meta')
 
 		# import shipping for order:
-		shipping_details = convert['shipping']
+		shipping_details = order['shipping']
 		# import wp_woocommerce_order_items
 		shipping_id = self.import_data_connector(self.create_insert_query_connector("woocommerce_order_items", {
 			'order_item_name':'Shipping',
@@ -4588,10 +4625,10 @@ class LeCartWoocommerce(LeCartWordpress):
 			'date_created':order_post['post_date'],
 			'date_created_gmt':order_post['post_date'],
 			'num_items_sold':'10',
-			'total_sales':convert['discount']['amount'],
+			'total_sales':order['discount']['amount'],
 			'tax_total':'0',
-			'shipping_total':convert['shipping']['amount'],
-			'net_total':convert['total']['amount'],
+			'shipping_total':order['shipping']['amount'],
+			'net_total':order['total']['amount'],
 			'returning_customer':'false',
 			'status':order_post['post_status'],
 			'customer_id':'1',
@@ -4599,7 +4636,7 @@ class LeCartWoocommerce(LeCartWordpress):
 		qr = self.create_insert_query_connector("wc_order_stats", data)
 		self.import_data_connector(qr, 'wc_order_stats')
 
-		return response_success(order['orders_id'])
+		return response_success(order_id)
 
 	def after_order_import(self, order_id, convert, order, orders_ext):
 

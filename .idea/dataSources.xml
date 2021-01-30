@@ -5,7 +5,7 @@
       <driver-ref>mysql.8</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
-      <jdbc-url>jdbc:mysql://localhost:3306/cartmigration_ver3_test_542</jdbc-url>
+      <jdbc-url>jdbc:mysql://localhost:3306/cartmigration_ver3_test_562</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
     <data-source source="LOCAL" name="@localhost" uuid="577d30a5-4713-40c2-a775-002e148b8f95">

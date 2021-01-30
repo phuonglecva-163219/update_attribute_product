@@ -696,7 +696,7 @@ class LeCartCustom(LeBasecart):
 		# 	if manufacturer:
 		# 		product_data['manufacturer']['name'] = manufacturer['manufacturers_name']
 
-		thumb_image= {'label': '', 'url': 'http://localhost/customcart/images/', 'path': 'BSNIDESS1.39VANNPW-100.png', 'status': True}
+		thumb_image= {'label': '', 'url': 'http://localhost/customcart/images/', 'path': product['products_image'], 'status': True}
 		product_data['thumb_image'] = thumb_image
 		product_categories = get_list_from_list_by_field(products_ext_data['products_to_categories'], 'products_id',
 		                                                 product['products_id'])
@@ -984,7 +984,7 @@ class LeCartCustom(LeBasecart):
 			'address': list(),
 			'groups': list(),
 			'balance': 0.00,
-			'user_url' : ''
+			'user_url' : '',
 		}
 		customer_data['id'] = customer['customers_id']
 		#customer_data['group_id'] = customer['customer_group_id']
@@ -1000,7 +1000,7 @@ class LeCartCustom(LeBasecart):
 		customer_data['telephone'] = customer['customers_telephone']
 		customer_data['fax'] = customer['customers_fax']
 		customer_data['active'] = True
-
+		customer_data['postcode'] = [data for data in customers_ext['data']['address_book'] if data['customers_id'] == customer['customers_id']][0]['entry_postcode']
 		# customer_info = get_row_from_list_by_field(customers_ext['data']['customers_info'], 'customers_info_id', customer['customers_id'])
 		# if customer_info:
 		# 	customer_data['created_at'] = customer_info['customers_info_date_account_created']
@@ -1158,7 +1158,10 @@ class LeCartCustom(LeBasecart):
 		shipping_details = get_row_from_list_by_field(order_rows_id, 'class', 'ot_shipping')
 		total_details = get_row_from_list_by_field(order_rows_id, 'class', 'ot_total')
 		tax_details = get_row_from_list_by_field(order_rows_id, 'class', 'ot_tax')
-
+		if 'title' not in shipping_details:
+			shipping_details['title'] = 'Shipping'
+		if 'value' not in shipping_details:
+			shipping_details['value'] = '0'
 		# data = []
 		# for x in orders_ext_data['orders_total']:
 		# 	if x['orders_id'] == order['orders_id']:
